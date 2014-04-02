@@ -1,0 +1,27 @@
+
+CC		= cc
+LD		= cc
+GCC		= gcc
+
+PHP_INC		=/usr/include/php
+
+INCLUDES	= -I . -I$(PHP_INC)/main -I$(PHP_INC)/Zend -I$(PHP_INC)/TSRM -I$(PHP_INC)
+
+CFLAGS		= -DLINUX -Wall -O -fPIC
+LDFLAGS		= -g -shared -Wl
+
+OBJS		= nw_util.o
+
+all: nw_util.so
+
+nw_util.so: $(OBJS)
+	$(LD) $(LDFLAGS) -o $@ $(OBJS) $(CLIBS)
+.c.o:
+	$(CC) $(CFLAGS) $(INCLUDES) -c $<
+clean:
+	rm -f ./*.o
+	rm -f ./*.so
+	rm -f ./*.lo
+	rm -f ./*.slo
+	rm -f ./*.libs
+
