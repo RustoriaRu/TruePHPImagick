@@ -1,11 +1,11 @@
 #include "php.h"
 
-PHP_FUNCTION(imagemagic_convert);
+PHP_FUNCTION(imagemagick_convert);
 
 
 const zend_function_entry nw_util_functions[] =
  {
-  PHP_FE(imagemagic_convert, NULL)
+  PHP_FE(imagemagick_convert, NULL)
   {NULL, NULL, NULL}
  };
 
@@ -25,7 +25,7 @@ zend_module_entry nw_util_module_entry =
  
 ZEND_GET_MODULE(nw_util);
 
-PHP_FUNCTION(imagemagic_convert)
+PHP_FUNCTION(imagemagick_convert)
 {
  char	*params;
  int	plen;
