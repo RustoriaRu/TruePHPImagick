@@ -1,3 +1,5 @@
+
+#include "ext/standard/php_smart_str.h"
 #include "php.h"
 
 PHP_FUNCTION(imagemagick_convert);
@@ -22,37 +24,77 @@ zend_module_entry nw_util_module_entry =
   NO_VERSION_YET,
   STANDARD_MODULE_PROPERTIES
  };
- 
+
 ZEND_GET_MODULE(nw_util);
 
+/*
+  function: imagemagick_convert
+  php parameters:
+       1. cmd (String): convert parameters string
+       2. result_string (String): out parameter for collect system out buffer
+  execution variants:
+       1. $res = imagemagick_convert("-version", $rbuf);
+       2. $res = imagemagick_convert("-addjoin file1.png file2.png", null);
+*/
 PHP_FUNCTION(imagemagick_convert)
 {
- char	*params;
- int	plen;
- char	*execstr=NULL;
- int	res=0;
- char	*cmd="convert ", *pcmd=" > /dev/null 2>&1";
- int	clen=strlen(cmd), pclen=strlen(pcmd);
- char	*cptr=NULL;
+ extern FILE *popen(); // DECLARE LIBRARY FUNCTION
 
- if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &params, &plen) == FAILURE) {
+ char		*param;
+ int		param_len;
+ char		*execstr=NULL;
+ int		res=0;
+ char		*cmd_pre="convert ", *cmd_post=" 2>&1";
+ int		cmd_pre_len=strlen(cmd_pre), cmd_post_len=strlen(cmd_post);
+ char		*cptr=NULL;
+ zval		*to_zval = NULL;
+ FILE		*in;
+ char		buff[512];
+ smart_str	text = {0};
+
+ // Parse function parameters
+ if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|z", &param, &param_len, &to_zval) == FAILURE) {
   return;
  }
- 
- execstr = malloc(plen+clen+pclen+1);
+
+ // Allocate formatted exec string
+ execstr = malloc(cmd_pre_len+param_len+cmd_post_len+1);
  cptr=execstr;
- memcpy(cptr, cmd, clen); cptr+=clen;
- memcpy(cptr, params, plen); cptr+=plen;
- memcpy(cptr, pcmd, pclen); cptr+=pclen;
-// printf("execstr: [%s]\n", execstr);
+ // Copy pre, cmd, post to exec string
+ memcpy(cptr, cmd_pre, cmd_pre_len);   cptr+=cmd_pre_len;
+ memcpy(cptr, param, param_len);       cptr+=param_len;
+ memcpy(cptr, cmd_post, cmd_post_len); cptr+=cmd_post_len;
  *cptr='\0';
- 
+
+ // Try to execute exec string
  // popen    http://www.sw-at.com/blog/2011/03/23/popen-execute-shell-command-from-cc/
- 
- res = system(execstr);
+ if (!(in = popen(execstr, "r")))
+  {
+   // If out variable defined and type of it STRING
+   if (to_zval!=NULL && Z_TYPE_P(to_zval) == IS_STRING)
+    {
+     // Create STRING object and fill it
+     smart_str_append(&text, "Can't open process: ");
+     smart_str_append(&text, strerror(errno));
+     ZVAL_STRINGL(to_zval, text.c, text.len, 1);
+    }
+   RETURN_LONG(-1);
+  }
+
+ // Reading out buffer to smart string variable
+ while (fgets(buff, sizeof(buff), in)!=NULL)
+  {
+   if (strstr(buff, "command not found")!=NULL)
+    res=-1;
+   smart_str_appendl(&text, buff, strlen(buff));
+  }
+
+ if (to_zval!=NULL && Z_TYPE_P(to_zval) == IS_STRING)
+   // Update out variable
+   ZVAL_STRINGL(to_zval, text.c, text.len, 1);
+
+ pclose(in);
  free(execstr);
-// printf("res: %d\n", res);
-// RETURN_STRING(params, 1);
+
  RETURN_LONG(res);
-// RETURN_STRING(execstr, 1);
 }
